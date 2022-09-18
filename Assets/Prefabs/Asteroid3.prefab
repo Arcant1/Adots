@@ -145,7 +145,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sfxName: 
   onDeathSpawnPrefabs: []
-  pointValue: 400
+  pointValue: 1
 --- !u!114 &-7639222868938376250
 MonoBehaviour:
   m_ObjectHideFlags: 0

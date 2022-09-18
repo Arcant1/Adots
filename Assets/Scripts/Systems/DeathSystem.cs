@@ -1,34 +1,34 @@
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
-using Unity.Mathematics;
-using Unity.Transforms;
 
-public partial class DeathSystem : SystemBase
-{
+public partial class DeathSystem : SystemBase {
 	private EndSimulationEntityCommandBufferSystem ecbSystem;
 
-	protected override void OnCreate()
-	{
+	protected override void OnCreate() {
 		ecbSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
 	}
-	protected override void OnUpdate()
-    {
-		var ecb = ecbSystem.CreateCommandBuffer().AsParallelWriter();
-		var dt = Time.DeltaTime;
+	protected override void OnUpdate() {
+		NativeArray<uint> points = new NativeArray<uint>(1, Allocator.TempJob);
+		points[0] = 0;
+		EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+		float dt = Time.DeltaTime;
 		Entities
 			.WithAll<DeathTag>()
-			.ForEach((Entity entity, int nativeThreadIndex, ref DeathTag killInfo) =>
-			{
+			.ForEach((Entity entity, int nativeThreadIndex, ref DeathTag killInfo) => {
 				killInfo.timer -= dt;
-				if(killInfo.timer <0f)
-				{
-					ecb.DestroyEntity(nativeThreadIndex, entity);
+				if (killInfo.timer < 0f) {
+					ecb.DestroyEntity( entity);
+				}
+				if (HasComponent<OnKill>(entity)) {
+					points[0] += GetComponent<OnKill>(entity).points;
 				}
 			})
 			.WithBurst()
-			.ScheduleParallel();
-		ecbSystem.AddJobHandleForProducer(Dependency);
+			.Schedule();
+		CompleteDependency();
+		
+		GameManager.instance.AddPoints(points[0]);
+		points.Dispose();
 	}
 }

@@ -19,8 +19,6 @@ public partial class AsteroidDamageSystem : SystemBase
 
 	protected override void OnUpdate()
 	{
-		var points = new NativeArray<uint>(1, Allocator.TempJob);
-		points[0] = 0;
 		var ecb = ecbSystem.CreateCommandBuffer().AsParallelWriter();
 		Entities
 			.WithName("DestroyAsteroidsWithBulletOnTrigger")
@@ -37,7 +35,6 @@ public partial class AsteroidDamageSystem : SystemBase
 					if (health.value <= 0)
 					{
 						ecb.AddComponent(nativeThreadIndex, entity, new DeathTag { timer = 0 });
-						points[0] += GetComponent<OnKill>(entity).points;
 					}
 					ecb.AddComponent(nativeThreadIndex, otherEntity, new DeathTag { timer = 0 });
 				}
@@ -53,16 +50,12 @@ public partial class AsteroidDamageSystem : SystemBase
 				{
 					var otherEntity = collisionBuffer[i].entity;
 					if (!HasComponent<PlayerTag>(otherEntity) || HasComponent<AsteroidTag>(otherEntity)) return;
-					if (GetComponent<Health>(otherEntity).invincibleTimer <= 0) return;
 					ecb.AddComponent(nativeThreadIndex, entity, new DeathTag { timer = 0 });
-					points[0] += GetComponent<OnKill>(entity).points;
 				}
 			})
 			.Schedule();
 		CompleteDependency();
 
 		ecbSystem.AddJobHandleForProducer(Dependency);
-		GameManager.instance.AddPoints(points[0]);
-		points.Dispose();
 	}
 }

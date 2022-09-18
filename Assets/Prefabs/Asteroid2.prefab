@@ -180,7 +180,7 @@ MonoBehaviour:
   onDeathSpawnPrefabs:
   - {fileID: 4312962780010906184, guid: aa90339cd32c5404da486afbf7aa45ec, type: 3}
   - {fileID: 4312962780010906184, guid: aa90339cd32c5404da486afbf7aa45ec, type: 3}
-  pointValue: 200
+  pointValue: 1
 --- !u!114 &-7639222868938376250
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -10,7 +10,6 @@ public class HealthAuthoring : MonoBehaviour, IConvertGameObjectToEntity
 	{
 		dstManager.AddComponentData(entity, new Health()
 		{
-			invincibleTimer = 0,
 			killTimer = killTimer,
 			value = hpValue,
 			damageSfx = new Unity.Collections.FixedString64Bytes(dmgSfx),

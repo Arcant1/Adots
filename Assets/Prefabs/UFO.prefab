@@ -373,4 +373,4 @@ MonoBehaviour:
   onDeathSpawnPrefabs:
   - {fileID: 8649767892965137153, guid: 8b36841b03d508646b1fc43be3f1ca65, type: 3}
   - {fileID: 8649767892965137153, guid: a6fe856c01c86414d8aedc6b2d192fe2, type: 3}
-  pointValue: 300
+  pointValue: 1

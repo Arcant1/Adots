@@ -36,7 +36,7 @@ public partial class CollisionSystem : SystemBase {
 
 		Entities.ForEach((DynamicBuffer<CollisionBuffer> collisions) => {
 			collisions.Clear();
-		}).Run();
+		}).Schedule();
 
 		JobHandle collisionJobHandle = new CollisionSystemJob() { collisions = GetBufferFromEntity<CollisionBuffer>() }
 			.Schedule(sim, Dependency);
@@ -45,7 +45,7 @@ public partial class CollisionSystem : SystemBase {
 		// Do the same thing for triggers
 		Entities.ForEach((DynamicBuffer<TriggerBuffer> triggers) => {
 			triggers.Clear();
-		}).Run();
+		}).Schedule();
 
 		JobHandle triggersJobHandle = new TriggerSystemJob() { triggers = GetBufferFromEntity<TriggerBuffer>() }
 			.Schedule(sim, Dependency);
