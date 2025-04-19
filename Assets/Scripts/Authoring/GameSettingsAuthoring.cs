@@ -6,7 +6,8 @@ public class GameSettingsAuthoring : MonoBehaviour
 {
 	public float asteroidVelocity = 10f;
 	public float playerForce = 50f;
-	public float bulletVelocity = 500f;
+	public float bulletVelocity = 15f;
+	public float bulletLifetime = 3f;
 	public int levelWidth = 2048;
 	public int levelHeight = 2048;
 	public float lookSpeedHorizontal = 2f;
@@ -29,7 +30,9 @@ public class GameSettingsAuthoring : MonoBehaviour
 				levelHeight = authoring.levelHeight,
 				lookSpeedHorizontal = authoring.lookSpeedHorizontal,
 				lookSpeedVertical = authoring.lookSpeedVertical,
-				ufoSpawnProb = authoring.ufoSpawnProb
+				ufoSpawnProb = authoring.ufoSpawnProb,
+				bulletVelocity = authoring.bulletVelocity,
+				bulletLifetime = authoring.bulletLifetime
 			});
 			
 			// Make this entity a singleton by adding a special tag component

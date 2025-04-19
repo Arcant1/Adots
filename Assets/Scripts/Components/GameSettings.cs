@@ -10,4 +10,8 @@ public struct GameSettings : IComponentData
 	public int levelDepth;
 	public float lookSpeedHorizontal;
 	public float lookSpeedVertical;
+	
+	// Bullet settings
+	public float bulletVelocity;
+	public float bulletLifetime;
 }

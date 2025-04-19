@@ -17,7 +17,7 @@ public partial class InputSpawnSystem : SystemBase
     {
         RequireForUpdate<GameSettingsTag>();
         RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
-        
+
         // Get a reference to player and bullet entities
         playerQuery = GetEntityQuery(ComponentType.ReadOnly<PlayerTag>());
         bulletQuery = GetEntityQuery(ComponentType.ReadOnly<BulletTag>());
@@ -25,7 +25,7 @@ public partial class InputSpawnSystem : SystemBase
 
     protected override void OnUpdate()
     {
-        if (!HasSingleton<EndSimulationEntityCommandBufferSystem.Singleton>())
+        if (!SystemAPI.HasSingleton<EndSimulationEntityCommandBufferSystem.Singleton>())
         {
             return;
         }
@@ -34,30 +34,30 @@ public partial class InputSpawnSystem : SystemBase
         EntityCommandBuffer ecb = endSimECB.CreateCommandBuffer(World.Unmanaged);
 
         // Make sure GameSettings is available
-        if (!HasSingleton<GameSettings>())
+        if (!SystemAPI.HasSingleton<GameSettings>())
         {
             return;
         }
 
-        GameSettings settings = GetSingleton<GameSettings>();
+        GameSettings settings = SystemAPI.GetSingleton<GameSettings>();
         bool shootPressed = Input.GetKey(KeyCode.Space);
-        
+
         // Just check if we have any player entities
         bool playerExists = !playerQuery.IsEmpty;
 
         // Make sure EntitiesReferences singleton is available
-        if (!HasSingleton<EntitiesReferences>())
+        if (!SystemAPI.HasSingleton<EntitiesReferences>())
         {
             return;
         }
-        
-        _playerPrefab = GetSingleton<EntitiesReferences>().scoutPrefabEntity;
+
+        _playerPrefab = SystemAPI.GetSingleton<EntitiesReferences>().scoutPrefabEntity;
 
         // Spawn player if needed
         if (shootPressed && !playerExists && _playerPrefab != Entity.Null)
         {
             Entity playerEntity = EntityManager.Instantiate(_playerPrefab);
-            
+
             // Set position at origin
             EntityManager.SetComponentData(playerEntity, new LocalTransform
             {
@@ -65,17 +65,17 @@ public partial class InputSpawnSystem : SystemBase
                 Rotation = quaternion.identity,
                 Scale = 1f
             });
-            
+
             // Make sure it has physics components
             if (!EntityManager.HasComponent<PhysicsVelocity>(playerEntity))
             {
                 EntityManager.AddComponent<PhysicsVelocity>(playerEntity);
             }
-            
+
             if (!EntityManager.HasComponent<PhysicsMass>(playerEntity))
             {
                 EntityManager.AddComponent<PhysicsMass>(playerEntity);
-                
+
                 // Set a reasonable mass
                 var mass = new PhysicsMass
                 {
@@ -86,13 +86,13 @@ public partial class InputSpawnSystem : SystemBase
                 };
                 EntityManager.SetComponentData(playerEntity, mass);
             }
-            
+
             // Ensure it has a PhysicsCollider component
             if (!EntityManager.HasComponent<PhysicsCollider>(playerEntity))
             {
-                Debug.LogWarning("Player missing PhysicsCollider - physics may not work properly");
+                Debug.LogWarning("Player missing PhysicsCollider - add a PhysicsColliderAuthoring component to your player prefab");
             }
-            
+
             Debug.Log("Player spawned at origin");
         }
 
@@ -109,8 +109,8 @@ public partial class InputSpawnSystem : SystemBase
     #region Private Fields
 
     private Entity _playerPrefab;
-    private EntityQuery playerQuery;
     private EntityQuery bulletQuery;
+    private EntityQuery playerQuery;
 
     #endregion Private Fields
 }
