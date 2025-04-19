@@ -1,7 +1,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 
-[GenerateAuthoringComponent]
+
 public struct Follow : IComponentData
 {
 	public Entity target;

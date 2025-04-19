@@ -1,72 +1,120 @@
-using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
-[BurstCompile]
+[UpdateInGroup(typeof(SimulationSystemGroup))]
+[UpdateAfter(typeof(InputSpawnSystem))]
 public partial class WrapperSystem : SystemBase
 {
-	private EndSimulationEntityCommandBufferSystem ecbSystem;
+    #region Protected Methods
 
-	Camera cam;
-	float xMin = 0, xMax = 0, yMin = 0, yMax = 0;
-	protected override void OnStartRunning()
-	{
-		cam = Camera.main;
-		xMin = 0;
-		xMax = 0;
-		yMin = 0;
-		yMax = 0;
-		CalculateBounds(cam, ref xMin, ref xMax, ref yMin, ref yMax);
-	}
-	protected override void OnCreate()
-	{
-		ecbSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-	}
-	protected override void OnUpdate()
-	{
-		float xMin = this.xMin;
-		float xMax = this.xMax;
-		float yMin = this.yMin;
-		float yMax = this.yMax;
+    protected override void OnCreate()
+    {
+        playerQuery = GetEntityQuery(ComponentType.ReadOnly<PlayerTag>());
+    }
 
-		var ecb = ecbSystem.CreateCommandBuffer().AsParallelWriter();
-		Entities
-			.WithNone<BulletTag, UFObulletTag>()
-			.ForEach((Entity entity, ref Translation translation) =>
-		{
-			if (translation.Value.x < xMin)
-				translation.Value.x = xMax;
-			if (translation.Value.x > xMax)
-				translation.Value.x = xMin;
-			if (translation.Value.y < yMin)
-				translation.Value.y = yMax;
-			if (translation.Value.y > yMax)
-				translation.Value.y = yMin;
-		}).ScheduleParallel();
-		CompleteDependency();
+    protected override void OnStartRunning()
+    {
+        mainCamera = Camera.main;
+        if (mainCamera == null)
+        {
+            Debug.LogWarning("WrapperSystem: No main camera found");
+            return;
+        }
+        CalculateBounds();
+    }
 
-		Entities
-			.WithAny<UFObulletTag, BulletTag>()
-			.ForEach((Entity e, int nativeThreadIndex, in Translation translation) =>
-			{
-				if ((translation.Value.x < xMin) ||
-					(translation.Value.x > xMax) ||
-					(translation.Value.y < yMin) ||
-					(translation.Value.y > yMax))
-					ecb.DestroyEntity(nativeThreadIndex, e); // Destroy immediately since I don't want to spawn nothing onKill
-			})
-			.ScheduleParallel();
-		CompleteDependency();
+    protected override void OnUpdate()
+    {
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                Debug.LogWarning("WrapperSystem: No main camera found");
+                return;
+            }
+            CalculateBounds();
+        }
 
+        // Handle player wrapping around screen bounds
+        var playerEntities = playerQuery.ToEntityArray(Allocator.Temp);
 
-	}
-	private void CalculateBounds(Camera cam, ref float xMin, ref float xMax, ref float yMin, ref float yMax)
-	{
-		xMin = cam.ViewportToWorldPoint(Vector3.zero).x;    // Left side
-		xMax = cam.ViewportToWorldPoint(Vector3.right).x;   // Right side
-		yMin = cam.ViewportToWorldPoint(Vector3.zero).y;    // Bottom
-		yMax = cam.ViewportToWorldPoint(Vector3.up).y;      // Top
-	}
+        if (playerEntities.Length > 0)
+        {
+            Entity playerEntity = playerEntities[0];
+
+            if (EntityManager.HasComponent<LocalTransform>(playerEntity))
+            {
+                var transform = EntityManager.GetComponentData<LocalTransform>(playerEntity);
+                bool positionChanged = false;
+
+                // Wrap position around screen boundaries
+                if (transform.Position.x < screenMin.x)
+                {
+                    transform.Position.x = screenMax.x;
+                    positionChanged = true;
+                }
+                else if (transform.Position.x > screenMax.x)
+                {
+                    transform.Position.x = screenMin.x;
+                    positionChanged = true;
+                }
+
+                if (transform.Position.y < screenMin.y)
+                {
+                    transform.Position.y = screenMax.y;
+                    positionChanged = true;
+                }
+                else if (transform.Position.y > screenMax.y)
+                {
+                    transform.Position.y = screenMin.y;
+                    positionChanged = true;
+                }
+
+                // Only update if position was modified
+                if (positionChanged)
+                {
+                    EntityManager.SetComponentData(playerEntity, transform);
+                    Debug.Log($"Wrapped player to: {transform.Position}");
+                }
+            }
+        }
+
+        playerEntities.Dispose();
+    }
+
+    #endregion Protected Methods
+
+    #region Private Fields
+
+    private Camera mainCamera;
+    private EntityQuery playerQuery;
+    private float2 screenMax;
+    private float2 screenMin;
+
+    #endregion Private Fields
+
+    #region Private Methods
+
+    private void CalculateBounds()
+    {
+        if (mainCamera == null) return;
+
+        // Calculate screen bounds in world space
+        Vector3 bottomLeft = mainCamera.ViewportToWorldPoint(new Vector3(0, 0, 0));
+        Vector3 topRight = mainCamera.ViewportToWorldPoint(new Vector3(1, 1, 0));
+
+        // Add a small buffer to avoid edge cases
+        float buffer = 0.5f;
+
+        screenMin = new float2(bottomLeft.x - buffer, bottomLeft.y - buffer);
+        screenMax = new float2(topRight.x + buffer, topRight.y + buffer);
+
+        Debug.Log($"Screen bounds: Min({screenMin.x}, {screenMin.y}) Max({screenMax.x}, {screenMax.y})");
+    }
+
+    #endregion Private Methods
 }

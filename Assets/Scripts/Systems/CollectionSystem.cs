@@ -7,13 +7,13 @@ using Unity.Transforms;
 
 using UnityEngine;
 
-public partial class CollectionSystem : SystemBase
+public partial struct CollectionSystem : ISystem
 {
-	protected override void OnUpdate()
+	public void OnUpdate(ref SystemState state)
 	{
-		float dt = Time.DeltaTime;
-		var ecbSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-		var ecb = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>().CreateCommandBuffer().AsParallelWriter();
+		float dt = SystemAPI.Time.DeltaTime;
+		//var ecbSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
+		//var ecb = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>().CreateCommandBuffer().AsParallelWriter();
 
 
 

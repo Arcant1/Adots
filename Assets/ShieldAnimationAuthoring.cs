@@ -3,14 +3,14 @@ using Unity.Mathematics;
 using UnityEngine;
 
 [DisallowMultipleComponent]
-public class ShieldAnimationAuthoring : MonoBehaviour, IConvertGameObjectToEntity
+public class ShieldAnimationAuthoring : MonoBehaviour
 {
 	public GameObject shield;
-	public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem) {
-		dstManager.AddComponentData(entity, new ShieldAnimationData {
-			shield = conversionSystem.GetPrimaryEntity(shield),
-		});
-	}
+	//public void Convert(Entity entity, EntityManager dstManager, GameObjectConversionSystem conversionSystem) {
+	//	dstManager.AddComponentData(entity, new ShieldAnimationData {
+	//		shield = conversionSystem.GetPrimaryEntity(shield),
+	//	});
+	//}
 }
 
 public struct ShieldAnimationData : IComponentData {

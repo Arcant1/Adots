@@ -1,6 +1,24 @@
 using Unity.Entities;
-[GenerateAuthoringComponent]
-public struct PlayerAuthoring : IComponentData
+using UnityEngine;
+
+public class PlayerAuthoring : MonoBehaviour
 {
-	public Entity Prefab;
+    #region Public Classes
+
+    public class Baker : Baker<PlayerAuthoring>
+    {
+        #region Public Methods
+
+        public override void Bake(PlayerAuthoring authoring)
+        {
+            Entity entity = GetEntity(TransformUsageFlags.Dynamic);
+
+            // Add PlayerTag for identification
+            AddComponent<PlayerTag>(entity);
+        }
+
+        #endregion Public Methods
+    }
+
+    #endregion Public Classes
 }

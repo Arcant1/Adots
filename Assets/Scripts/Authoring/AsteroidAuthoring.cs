@@ -1,6 +1,6 @@
-using Unity.Entities;
+//using Unity.Entities;
 
-[GenerateAuthoringComponent]
-public struct AsteroidAuthoring : IComponentData {
-	public Entity prefab;
-}
+
+//public struct AsteroidAuthoring : IComponentData {
+//	public Entity prefab;
+//}

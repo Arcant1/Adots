@@ -1,27 +1,22 @@
 using Unity.Entities;
 
-public partial class LifeTimeSystem : SystemBase
+public partial struct LifeTimeSystem : ISystem
 {
-	private BeginSimulationEntityCommandBufferSystem ecbSystem;
 
-	protected override void OnCreate()
+	public  void OnCreate(ref SystemState state)
 	{
-		ecbSystem = World.GetOrCreateSystem<BeginSimulationEntityCommandBufferSystem>();
+		//ecbSystem = World.GetOrCreateSystem<BeginSimulationEntityCommandBufferSystem>();
 	}
 
-	protected override void OnUpdate()
+	public void OnUpdate(ref SystemState state)
 	{
-		var ecb = ecbSystem.CreateCommandBuffer().AsParallelWriter();
+		//Entities.ForEach((Entity entity, int nativeThreadIndex, ref LifeTime ttl) =>
+		//{
+		//	ttl.time += deltaTime;
+		//	if (ttl.time > ttl.maxTime)
+		//		ecb.DestroyEntity(nativeThreadIndex, entity);
 
-		var deltaTime = Time.DeltaTime;
-
-		Entities.ForEach((Entity entity, int nativeThreadIndex, ref LifeTime ttl) =>
-		{
-			ttl.time += deltaTime;
-			if (ttl.time > ttl.maxTime)
-				ecb.DestroyEntity(nativeThreadIndex, entity);
-
-		}).ScheduleParallel();
-		ecbSystem.AddJobHandleForProducer(Dependency);
+		//}).ScheduleParallel();
+		//ecbSystem.AddJobHandleForProducer(Dependency);
 	}
 }

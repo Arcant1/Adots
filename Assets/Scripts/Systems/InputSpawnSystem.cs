@@ -1,119 +1,116 @@
+using System.Linq;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;
+using Unity.Physics.Extensions;
 using Unity.Transforms;
-
 using UnityEngine;
-[BurstCompile]
-public partial class InputSpawnSystem : SystemBase {
-	private EntityQuery playerQuery;
-	private EndSimulationEntityCommandBufferSystem ecbSystem;
-	private Entity _playerPrefab;
-	private Entity _bulletPrefab;
-	private EntityQuery gameSettingsQuery;
-	protected override void OnCreate() {
-		RequireSingletonForUpdate<GameSettings>();
-		gameSettingsQuery = GetEntityQuery(ComponentType.ReadWrite<GameSettings>());
-		RequireForUpdate(gameSettingsQuery);
-		playerQuery = GetEntityQuery(ComponentType.ReadWrite<PlayerTag>());
-		ecbSystem = World.GetOrCreateSystem<EndSimulationEntityCommandBufferSystem>();
-	}
-	protected override void OnUpdate() {
-		float dt = Time.DeltaTime;
-		GameSettings settings = GetSingleton<GameSettings>();
-		EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
-		EntityCommandBuffer.ParallelWriter ecbp = ecb.AsParallelWriter();
 
+[UpdateInGroup(typeof(SimulationSystemGroup))]
+public partial class InputSpawnSystem : SystemBase
+{
+    #region Protected Methods
 
-		bool selfDestruct = false, shootPressed = false;
-		int playerCount = playerQuery.CalculateEntityCountWithoutFiltering();
-		float currentTime = UnityEngine.Time.time;
-		if (_playerPrefab == Entity.Null || _bulletPrefab == Entity.Null) {
-			_playerPrefab = GetSingleton<PlayerAuthoring>().Prefab;
-			_bulletPrefab = GetSingleton<BulletAuthoring>().prefab;
-			return;
-		}
-		Entity bulletPrefab = _bulletPrefab;
-		selfDestruct = Input.GetKeyDown(KeyCode.P);
-		shootPressed = Input.GetKey(KeyCode.Space);
+    protected override void OnCreate()
+    {
+        RequireForUpdate<GameSettingsTag>();
+        RequireForUpdate<EndSimulationEntityCommandBufferSystem.Singleton>();
+        
+        // Get a reference to player and bullet entities
+        playerQuery = GetEntityQuery(ComponentType.ReadOnly<PlayerTag>());
+        bulletQuery = GetEntityQuery(ComponentType.ReadOnly<BulletTag>());
+    }
 
-		if (shootPressed && playerCount < 1) {
-			EntityManager.Instantiate(_playerPrefab);
-			return;
-		}
+    protected override void OnUpdate()
+    {
+        if (!HasSingleton<EndSimulationEntityCommandBufferSystem.Singleton>())
+        {
+            return;
+        }
 
-		Entities
-			.WithName("CheckIfPlayerCanShoot")
-			.WithAll<PlayerTag, Weapon>()
-			.ForEach((ref Weapon weaponConfig) => {
-				weaponConfig.canShoot = false;
-				if (currentTime >= weaponConfig.lastTime + 1 / weaponConfig.fireRate && shootPressed) {
-					weaponConfig.canShoot = true;
-					weaponConfig.lastTime = currentTime;
-					AudioManager.instance.PlaySfxRequest(weaponConfig.fireSfx.ToString());
+        var endSimECB = SystemAPI.GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>();
+        EntityCommandBuffer ecb = endSimECB.CreateCommandBuffer(World.Unmanaged);
 
-				}
-			})
-			.WithoutBurst()
-			.Run();
+        // Make sure GameSettings is available
+        if (!HasSingleton<GameSettings>())
+        {
+            return;
+        }
 
-		ecbSystem.AddJobHandleForProducer(Dependency);
+        GameSettings settings = GetSingleton<GameSettings>();
+        bool shootPressed = Input.GetKey(KeyCode.Space);
+        
+        // Just check if we have any player entities
+        bool playerExists = !playerQuery.IsEmpty;
 
-		Entities
-			.WithName("SpawnsAndConfigSingleBullet")
-			.WithAll<PlayerTag>()
-			.WithNone<SpreadShot>()
-			.ForEach((Entity entity, int nativeThreadIndex, in Translation position, in Rotation rot, in PhysicsVelocity vel, in BulletSpawnOffset offset, in Weapon weaponConfig) => {
-				if (!weaponConfig.canShoot) { return; }
-				Entity bullet = ecbp.Instantiate(nativeThreadIndex, bulletPrefab);
-				Translation newPos = new Translation { Value = position.Value + math.mul(rot.Value.value.xyz, offset.Value) };
-				Rotation newRot = new Rotation { Value = rot.Value };
-				ecbp.SetComponent(nativeThreadIndex, bullet, newPos);
-				ecbp.SetComponent(nativeThreadIndex, bullet, newRot);
-				PhysicsVelocity newVel = new PhysicsVelocity { Linear = (weaponConfig.bulletVelocity * math.mul(rot.Value, new float3(0, 1, 0)).xyz) + vel.Linear };
-				ecbp.SetComponent(nativeThreadIndex, bullet, newVel);
-				ecbp.SetComponent(nativeThreadIndex, bullet, new Damage { damageValue = weaponConfig.damageValue });
-			})
-			.ScheduleParallel();
+        // Make sure EntitiesReferences singleton is available
+        if (!HasSingleton<EntitiesReferences>())
+        {
+            return;
+        }
+        
+        _playerPrefab = GetSingleton<EntitiesReferences>().scoutPrefabEntity;
 
-		ecbSystem.AddJobHandleForProducer(Dependency);
+        // Spawn player if needed
+        if (shootPressed && !playerExists && _playerPrefab != Entity.Null)
+        {
+            Entity playerEntity = EntityManager.Instantiate(_playerPrefab);
+            
+            // Set position at origin
+            EntityManager.SetComponentData(playerEntity, new LocalTransform
+            {
+                Position = new float3(0, 0, 0),
+                Rotation = quaternion.identity,
+                Scale = 1f
+            });
+            
+            // Make sure it has physics components
+            if (!EntityManager.HasComponent<PhysicsVelocity>(playerEntity))
+            {
+                EntityManager.AddComponent<PhysicsVelocity>(playerEntity);
+            }
+            
+            if (!EntityManager.HasComponent<PhysicsMass>(playerEntity))
+            {
+                EntityManager.AddComponent<PhysicsMass>(playerEntity);
+                
+                // Set a reasonable mass
+                var mass = new PhysicsMass
+                {
+                    InverseInertia = new float3(1f),
+                    InverseMass = 0.1f, // Higher inverse mass (lower actual mass)
+                    Transform = new RigidTransform(quaternion.identity, float3.zero),
+                    CenterOfMass = float3.zero
+                };
+                EntityManager.SetComponentData(playerEntity, mass);
+            }
+            
+            // Ensure it has a PhysicsCollider component
+            if (!EntityManager.HasComponent<PhysicsCollider>(playerEntity))
+            {
+                Debug.LogWarning("Player missing PhysicsCollider - physics may not work properly");
+            }
+            
+            Debug.Log("Player spawned at origin");
+        }
 
-		Entities
-			.WithName("SpawnsAndConfigBurstShot")
-			.WithAll<PlayerTag, SpreadShot>()
-			.ForEach((Entity entity, int nativeThreadIndex, in Translation position, in Rotation rot, in PhysicsVelocity vel, in BulletSpawnOffset offset, in SpreadShot spreadShot, in Weapon weaponConfig) => {
-				if (!weaponConfig.canShoot) { return; }
-				float spreadOffsetAngle = spreadShot.angleOfSpread / weaponConfig.bulletQuantity;
-				for (int i = 0; i <= weaponConfig.bulletQuantity; i++) {
-					Rotation newRot = new Rotation { Value = math.mul(rot.Value, quaternion.RotateZ(math.radians(-spreadShot.angleOfSpread / 2 + spreadOffsetAngle * i))) };
-					Entity bullet = ecbp.Instantiate(nativeThreadIndex, bulletPrefab);
-					Translation newPos = new Translation { Value = position.Value + math.mul(rot.Value.value.xyz, offset.Value) };
-					ecbp.SetComponent(nativeThreadIndex, bullet, newPos);
-					ecbp.SetComponent(nativeThreadIndex, bullet, newRot);
-					PhysicsVelocity newVel = new PhysicsVelocity { Linear = (weaponConfig.bulletVelocity * math.mul(newRot.Value, new float3(0, 1, 0)).xyz) + vel.Linear };
-					ecbp.SetComponent(nativeThreadIndex, bullet, newVel);
-					ecbp.SetComponent(nativeThreadIndex, bullet, new Damage { damageValue = weaponConfig.damageValue });
-				}
-			})
-			.ScheduleParallel();
+        // Update game manager with bullet count (if needed)
+        if (GameManager.instance != null)
+        {
+            int bulletCount = bulletQuery.IsEmpty ? 0 : bulletQuery.CalculateEntityCount();
+            GameManager.instance.SetBulletsPerSecond(bulletCount);
+        }
+    }
 
-		ecbSystem.AddJobHandleForProducer(Dependency);
+    #endregion Protected Methods
 
+    #region Private Fields
 
-		Entities
-			.WithName("CheckForSuicideButton")
-			.ForEach((Entity entity, int nativeThreadIndex) => {
-				if (selfDestruct) {
-					ecbp.AddComponent(nativeThreadIndex, entity, new DeathTag { timer = 0 });
-				}
-			})
-			.ScheduleParallel();
+    private Entity _playerPrefab;
+    private EntityQuery playerQuery;
+    private EntityQuery bulletQuery;
 
-		ecbSystem.AddJobHandleForProducer(Dependency);
-
-		EntityQuery bulletQuery = GetEntityQuery(ComponentType.ReadOnly<BulletTag>());
-		int bulletCount = bulletQuery.CalculateEntityCount();
-		GameManager.instance.SetBulletsPerSecond(bulletCount);
-	}
+    #endregion Private Fields
 }
